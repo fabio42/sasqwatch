@@ -27,10 +27,10 @@ var (
 	}{}
 
 	rootCmd = &cobra.Command{
-		Use:     "saskwatch [flags] command",
+		Use:     "sasqwatch [flags] command",
 		Version: Version,
-		Short:   "saskwatch",
-		Long:    "saskwatch is a tool to execute a program periodically, showing output fullscreen.",
+		Short:   "sasqwatch",
+		Long:    "sasqwatch is a tool to execute a program periodically, showing output fullscreen.",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
