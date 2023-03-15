@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"sasqwatch/viewport"
+	"github.com/fabio42/sasqwatch/viewport"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/help"
