@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Version = "dev"
+var Version = "devel"
 
 var (
 	rootFlags = struct {
