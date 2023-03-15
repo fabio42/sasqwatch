@@ -13,8 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Version = "devel"
-
 var (
 	rootFlags = struct {
 		diff      bool
@@ -27,10 +25,9 @@ var (
 	}{}
 
 	rootCmd = &cobra.Command{
-		Use:     "sasqwatch [flags] command",
-		Version: Version,
-		Short:   "sasqwatch",
-		Long:    "sasqwatch is a tool to execute a program periodically, showing output fullscreen.",
+		Use:   "sasqwatch [flags] command",
+		Short: "sasqwatch",
+		Long:  "sasqwatch is a tool to execute a program periodically, showing output fullscreen.",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
