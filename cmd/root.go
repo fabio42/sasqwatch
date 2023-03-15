@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"sasqwatch/ui"
+	"github.com/fabio42/sasqwatch/ui"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog/log"

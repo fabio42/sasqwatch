@@ -5,7 +5,7 @@ builds:
   - env:
       - CGO_ENABLED=0
     ldflags:
-      - -s -w -X sasqwatch/cmd.Version={{.Version}}
+      - -s -w -X github.com/fabio42/sasqwatch/cmd.Version={{.Version}}
     goos:
       - linux
       - darwin

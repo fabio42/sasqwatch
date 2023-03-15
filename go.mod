@@ -1,4 +1,4 @@
-module sasqwatch
+module github.com/fabio42/sasqwatch
 
 go 1.18
 

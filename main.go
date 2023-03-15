@@ -1,6 +1,6 @@
 package main
 
-import "sasqwatch/cmd"
+import "github.com/fabio42/sasqwatch/cmd"
 
 func main() {
 	cmd.Execute()
