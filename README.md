@@ -27,6 +27,12 @@ The initial goal was to create a `watch` command version that would allow update
 go install github.com/fabio42/sasqwatch@latest
 ```
 
+`sasqwatch` is now also available through [tea package manager](https://tea.xyz/):
+
+```bash
+sh <(curl tea.xyz) sasqwatch --help
+```
+
 ## Usage
 ```
 sasqwatch is a tool to execute a program periodically, showing output fullscreen.
