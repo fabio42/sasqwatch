@@ -64,6 +64,7 @@ type Model struct {
 	execCh        chan cmdData
 	diffOption    int
 	paused        bool
+	foredRun      bool
 	copyCb        bool
 	printHelp     bool
 	cfg           Config
@@ -147,8 +148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.timer.Toggle()
 		case key.Matches(msg, m.keymap.run):
-			m.diffColors++
-			m.timer.Timeout = m.cfg.Interval
+			m.foredRun = true
 			if m.paused {
 				m.cmdIdx = 0
 			}
@@ -223,11 +223,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case cmdData:
 		log.Debug().Msg("cmdData -- incoming data")
-		m.timer.Timeout = m.cfg.Interval
-
-		m.procCmdData(msg)
-		cmds = append(cmds, m.timer.Start())
-		cmds = append(cmds, updateSdtOutEvent)
+		if !m.paused {
+			m.timer.Timeout = m.cfg.Interval
+			cmds = append(cmds, m.timer.Start())
+			m.procCmdData(msg)
+			cmds = append(cmds, updateSdtOutEvent)
+		} else if m.foredRun {
+			m.foredRun = false
+			m.procCmdData(msg)
+			cmds = append(cmds, updateSdtOutEvent)
+		}
 
 	case updateSdtOut:
 		log.Debug().Msg("Update Stdout")
