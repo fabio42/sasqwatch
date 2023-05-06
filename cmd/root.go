@@ -35,6 +35,11 @@ var (
 				os.Exit(0)
 			}
 
+			err := setLogger(rootFlags.debug)
+			if err != nil {
+				log.Fatal().Msgf("Error failed to configure logger:", err)
+			}
+
 			cfg := ui.Config{
 				Interval: time.Second * time.Duration(rootFlags.interval),
 				History:  int(rootFlags.records),
@@ -56,15 +61,10 @@ var (
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.diff, "diff", "d", false, "Highlight the differences between successive updates.")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.permDiff, "permdiff", "P", false, "Highlight the differences between successive updates since the first iteration.")
-	rootCmd.PersistentFlags().BoolVarP(&rootFlags.debug, "debug", "D", false, "Enable debug log, out will will be saved in ") // XXX
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.debug, "debug", "D", false, "Enable debug log")
 	rootCmd.PersistentFlags().UintVarP(&rootFlags.interval, "interval", "n", 2, "Specify update interval.")
 	rootCmd.PersistentFlags().UintVarP(&rootFlags.records, "records", "r", 50, "Specify how many stdout records are kept in memory.")
 	rootCmd.PersistentFlags().StringVarP(&rootFlags.title, "set-title", "T", "", "Replace the hostname in the status bar by a custom string.")
-
-	err := setLogger(rootFlags.debug)
-	if err != nil {
-		log.Fatal().Msgf("Error failed to configure logger:", err)
-	}
 }
 
 func Execute() {
