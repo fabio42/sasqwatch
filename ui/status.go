@@ -20,9 +20,9 @@ func (m *Model) statusView() string {
 	mainStyle := lipgloss.NewStyle().Background(lipgloss.Color("0")).Foreground(lipgloss.Color("7"))
 
 	if m.cmdIdx == 0 {
-		records = fmt.Sprintf("| latest/%d |", m.cmdRecords)
+		records = fmt.Sprintf(" latest/%d ", m.cmdRecords)
 	} else {
-		records = fmt.Sprintf("| %d/%d |", m.cmdIdx+1, m.cmdRecords)
+		records = fmt.Sprintf(" %d/%d ", m.cmdIdx+1, m.cmdRecords)
 	}
 	records = mainStyle.Copy().Foreground(notifColor).Render(records)
 
@@ -42,9 +42,9 @@ func (m *Model) statusView() string {
 	if m.diffOption != diffOff {
 		var diffMode string
 		if m.diffOption == diffSimple {
-			diffMode = " diff |"
+			diffMode = "| diff "
 		} else {
-			diffMode = " permDiff |"
+			diffMode = "| permDiff "
 		}
 		diff = mainStyle.Copy().Foreground(notifColor).Render(diffMode)
 	}
