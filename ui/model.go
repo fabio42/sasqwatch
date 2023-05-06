@@ -24,6 +24,10 @@ const (
 	diffPerpetual
 )
 
+var (
+	inProgress bool
+)
+
 type Config struct {
 	Interval time.Duration
 	History  int
@@ -41,6 +45,11 @@ type cmdData struct {
 	header     string
 }
 
+type cmdQuery struct {
+	cmd    []string
+	result chan cmdData
+}
+
 type Model struct {
 	timer         timer.Model
 	viewport      *viewport.Model
@@ -52,6 +61,7 @@ type Model struct {
 	cmdIdx        int
 	cmdRecords    int
 	cmdError      bool
+	execCh        chan cmdData
 	diffOption    int
 	paused        bool
 	copyCb        bool
@@ -97,6 +107,7 @@ func NewModel(cfg Config) Model {
 		paused:     false,
 		cmdFields:  strings.Fields(cfg.Cmd),
 		cmdsData:   make([]cmdData, cfg.History),
+		execCh:     make(chan cmdData),
 		diffColors: 1,
 		diffOption: diffOpt,
 		help:       help.New(),
@@ -104,8 +115,6 @@ func NewModel(cfg Config) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	m.cmdsData[len(m.cmdsData)-1] = m.runCommand()
-
 	return tea.Batch(
 		tea.EnterAltScreen,
 		m.timer.Init(),
@@ -191,7 +200,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case timer.StartStopMsg:
-		log.Debug().Msg("StartStop")
 		var cmd tea.Cmd
 		if !m.paused {
 			m.timer.Timeout = m.cfg.Interval
@@ -200,16 +208,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case timer.TimeoutMsg:
-		log.Debug().Msg("case TimeoutMsg")
-		m.timer.Timeout = m.cfg.Interval
-		return m, runCmdEvent
+		log.Debug().Msg("TimeoutMsg")
+		cmds = append(cmds, runCmdEvent)
 
 	case runCmd:
-		log.Debug().Msg("case runCmd")
-		m.run()
+		if !inProgress {
+			// lock required ?
+			log.Debug().Msg("runCmd -- Exec command")
+			go execCmd(m.cmdFields, m.execCh)
+		} else {
+			log.Debug().Msg("runCmd -- Skipping already in progress")
+		}
+		cmds = append(cmds, waitCmd(m.execCh))
+
+	case cmdData:
+		log.Debug().Msg("cmdData -- incoming data")
+		m.timer.Timeout = m.cfg.Interval
+
+		m.procCmdData(msg)
+		cmds = append(cmds, m.timer.Start())
 		cmds = append(cmds, updateSdtOutEvent)
 
 	case updateSdtOut:
+		log.Debug().Msg("Update Stdout")
 		if m.diffOption != diffOff {
 			m.viewport.SetContent(m.diffStdout())
 		} else {
@@ -239,21 +260,12 @@ func (m Model) View() string {
 	return str.String()
 }
 
-func (m *Model) runCommand() cmdData {
-	// TODO add windows support
-	var cmd cmdData
-	exeCmd := exec.Command("sh", "-c", strings.Join(m.cmdFields, " "))
-	cmd.stdout, cmd.err = exeCmd.CombinedOutput()
-	cmd.date = time.Now()
-	return cmd
-}
-
-func (m *Model) run() {
-	d := m.runCommand()
+// procCmdData update in memory command command execution data array
+func (m *Model) procCmdData(d cmdData) {
 	if string(d.stdout) != string(m.cmdsData[len(m.cmdsData)-1].stdout) {
 		b := make([]cmdData, cap(m.cmdsData))
 		copy(b, m.cmdsData[1:])
-		b[len(b)-1] = m.runCommand()
+		b[len(b)-1] = d
 		m.cmdsData = b
 		if m.cmdRecords < m.cfg.History {
 			m.cmdRecords++
@@ -263,6 +275,7 @@ func (m *Model) run() {
 	}
 }
 
+// diffStdout process stdout command data and identify diffs
 func (m *Model) diffStdout() string {
 	log.Debug().Msgf("cmdIdx: %v - cmdRecords: %v - history: %v", m.cmdIdx, m.cmdRecords, m.cfg.History)
 	if m.diffOption > diffOff && m.cmdPerpDiff == "" {
@@ -310,4 +323,24 @@ func (m *Model) diffStdout() string {
 		m.cmdPerpDiff = allDiffStdOut.String()
 	}
 	return str.String()
+}
+
+// waitCmd intercept cmdData and inject it in tea model
+func waitCmd(resp chan cmdData) tea.Cmd {
+	return func() tea.Msg {
+		return cmdData(<-resp)
+	}
+}
+
+// execCmd execute a shell command
+// This function is meant to be run as a goroutine
+func execCmd(command []string, outputChan chan<- cmdData) {
+	log.Debug().Msg("Goroutine exec")
+	inProgress = true
+	var cmd cmdData
+	exeCmd := exec.Command("sh", "-c", strings.Join(command, " "))
+	cmd.stdout, cmd.err = exeCmd.CombinedOutput()
+	cmd.date = time.Now()
+	inProgress = false
+	outputChan <- cmd
 }
