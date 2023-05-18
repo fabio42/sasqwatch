@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -49,6 +50,11 @@ func (m *Model) statusView() string {
 		diff = mainStyle.Copy().Foreground(notifColor).Render(diffMode)
 	}
 
+	// On start date is not set until first command execution is done
+	if cmd.date.Equal(time.Time{}) && m.firstRun {
+		m.firstRun = false
+		cmd.date = time.Now()
+	}
 	date = fmt.Sprintf("%s: %s", m.cfg.HostName, cmd.date.Format("Mon Jan 02 15:04:05 2006"))
 	mode := mainStyle.Copy().Background(bg).AlignHorizontal(lipgloss.Left).Render(modeData)
 	left = mode + records + diff + clip

@@ -56,18 +56,17 @@ type Model struct {
 	help          help.Model
 	keymap        keymap
 	cmdsData      []cmdData
-	cmdFields     []string
+	cfg           Config
+	execCh        chan cmdData
 	cmdPerpDiff   string
 	cmdIdx        int
 	cmdRecords    int
-	cmdError      bool
-	execCh        chan cmdData
 	diffOption    int
 	paused        bool
-	foredRun      bool
 	copyCb        bool
+	forcedRun     bool
+	firstRun      bool
 	printHelp     bool
-	cfg           Config
 	diffColors    int
 	width, height int
 }
@@ -106,7 +105,7 @@ func NewModel(cfg Config) Model {
 		viewport:   &vp,
 		keymap:     km,
 		paused:     false,
-		cmdFields:  strings.Fields(cfg.Cmd),
+		firstRun:   true,
 		cmdsData:   make([]cmdData, cfg.History),
 		execCh:     make(chan cmdData),
 		diffColors: 1,
@@ -146,9 +145,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.paused {
 				m.cmdIdx = 0
 			}
-			return m, m.timer.Toggle()
+			cmds = append(cmds, m.timer.Toggle())
 		case key.Matches(msg, m.keymap.run):
-			m.foredRun = true
+			m.forcedRun = true
 			if m.paused {
 				m.cmdIdx = 0
 			}
@@ -161,7 +160,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.cmdIdx < m.cmdRecords-1 {
 				m.cmdIdx++
-				log.Debug().Msgf("cmdIdx: %v - cmdRecords: %v", m.cmdIdx, m.cmdRecords)
+				log.Debug().Str("Component", "ModelUpdate").Str("Case", "KeyMsg").Str("Key", "Prev").Msgf("cmdIdx: %v - cmdRecords: %v", m.cmdIdx, m.cmdRecords)
 				cmds = append(cmds, updateSdtOutEvent)
 			}
 			cmds = append(cmds, rep)
@@ -179,7 +178,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keymap.copy):
 			err := clipboard.WriteAll(string(m.cmdsData[len(m.cmdsData)-1-m.cmdIdx].stdout))
 			if err != nil {
-				log.Debug().Msgf("Clipboard err: %v", err)
+				log.Debug().Str("Component", "ModelUpdate").Str("Case", "KeyMsg").Str("Key", "copy").Msgf("Clipboard err: %v", err)
 			}
 			m.copyCb = true
 			// Provide visual feedback that copy to clipboard was successful
@@ -194,6 +193,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.Height = m.height - 3
 			}
 		}
+
 	case timer.TickMsg:
 		var cmd tea.Cmd
 		m.timer, cmd = m.timer.Update(msg)
@@ -208,34 +208,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case timer.TimeoutMsg:
-		log.Debug().Msg("TimeoutMsg")
+		log.Debug().Str("Component", "ModelUpdate").Str("Case", "TimeoutMsg").Msg("")
 		cmds = append(cmds, runCmdEvent)
 
 	case runCmd:
 		if !inProgress {
-			// lock required ?
-			log.Debug().Msg("runCmd -- Exec command")
-			go execCmd(m.cmdFields, m.execCh)
+			log.Debug().Str("Component", "ModelUpdate").Str("Case", "runCmd").Msg("Trigger command")
+			go execCmd(strings.Fields(m.cfg.Cmd), m.execCh)
 		} else {
-			log.Debug().Msg("runCmd -- Skipping already in progress")
+			log.Debug().Str("Component", "ModelUpdate").Str("Case", "runCmd").Msg("Skipping command")
 		}
 		cmds = append(cmds, waitCmd(m.execCh))
 
 	case cmdData:
-		log.Debug().Msg("cmdData -- incoming data")
+		log.Debug().Str("Component", "ModelUpdate").Str("Case", "cmdData").Bool("Paused", m.paused).Msg("")
 		if !m.paused {
 			m.timer.Timeout = m.cfg.Interval
-			cmds = append(cmds, m.timer.Start())
-			m.procCmdData(msg)
-			cmds = append(cmds, updateSdtOutEvent)
-		} else if m.foredRun {
-			m.foredRun = false
-			m.procCmdData(msg)
-			cmds = append(cmds, updateSdtOutEvent)
+		} else if m.forcedRun {
+			m.forcedRun = false
 		}
+		m.procCmdData(msg)
+		cmds = append(cmds, updateSdtOutEvent)
+		log.Debug().Str("Component", "ModelUpdate").Str("Case", "cmdData").Int("timerId", m.timer.ID()).Dur("Interval", m.timer.Interval).Dur("timerTO", m.timer.Timeout).Msg("")
 
 	case updateSdtOut:
-		log.Debug().Msg("Update Stdout")
+		log.Debug().Str("Component", "ModelUpdate").Str("Case", "updateSdtOut").Msg("Event received")
 		if m.diffOption != diffOff {
 			m.viewport.SetContent(m.diffStdout())
 		} else {
@@ -265,7 +262,7 @@ func (m Model) View() string {
 	return str.String()
 }
 
-// procCmdData update in memory command command execution data array
+// procCmdData update in memory command execution data array
 func (m *Model) procCmdData(d cmdData) {
 	if string(d.stdout) != string(m.cmdsData[len(m.cmdsData)-1].stdout) {
 		b := make([]cmdData, cap(m.cmdsData))
@@ -282,7 +279,8 @@ func (m *Model) procCmdData(d cmdData) {
 
 // diffStdout process stdout command data and identify diffs
 func (m *Model) diffStdout() string {
-	log.Debug().Msgf("cmdIdx: %v - cmdRecords: %v - history: %v", m.cmdIdx, m.cmdRecords, m.cfg.History)
+	log.Debug().Str("Component", "ModeldiffStdout").Int("cmdIdx", m.cmdIdx).Int("cmdRecords", m.cmdRecords).Int("History", m.cfg.History).Msg("Diff processing")
+
 	if m.diffOption > diffOff && m.cmdPerpDiff == "" {
 		m.cmdPerpDiff = string(m.cmdsData[len(m.cmdsData)-1].stdout)
 	}
@@ -340,7 +338,8 @@ func waitCmd(resp chan cmdData) tea.Cmd {
 // execCmd execute a shell command
 // This function is meant to be run as a goroutine
 func execCmd(command []string, outputChan chan<- cmdData) {
-	log.Debug().Msg("Goroutine exec")
+	log.Debug().Str("Component", "execCmd").Msg("")
+
 	inProgress = true
 	var cmd cmdData
 	exeCmd := exec.Command("sh", "-c", strings.Join(command, " "))
