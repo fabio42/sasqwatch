@@ -30,7 +30,7 @@ func (m *Model) statusView() string {
 	if m.paused {
 		cmd = m.cmdsData[len(m.cmdsData)-1-m.cmdIdx]
 		bg = stopColor
-		modeData = fmt.Sprintf("  Every %s: %s ", m.cfg.Interval, m.cfg.Cmd)
+		modeData = fmt.Sprintf(" ■ Every %s: %s ", m.cfg.Interval, m.cfg.Cmd)
 	} else {
 		cmd = m.cmdsData[len(m.cmdsData)-1]
 		bg = runColor
