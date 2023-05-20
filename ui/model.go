@@ -224,6 +224,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Debug().Str("Component", "ModelUpdate").Str("Case", "cmdData").Bool("Paused", m.paused).Msg("")
 		if !m.paused {
 			m.timer.Timeout = m.cfg.Interval
+			cmds = append(cmds, m.timer.Start())
 		} else if m.forcedRun {
 			m.forcedRun = false
 		}
