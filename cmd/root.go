@@ -15,10 +15,12 @@ import (
 
 var (
 	rootFlags = struct {
+		chgExit   bool
+		debug     bool
 		diff      bool
+		errExit   bool
 		permDiff  bool
 		statusBar bool
-		debug     bool
 		interval  uint
 		records   uint
 		title     string
@@ -45,7 +47,9 @@ var (
 				History:  int(rootFlags.records),
 				HostName: rootFlags.title,
 				Cmd:      strings.Join(args, " "),
+				ChgExit:  rootFlags.chgExit,
 				Diff:     rootFlags.diff,
+				ErrExit:  rootFlags.errExit,
 				PermDiff: rootFlags.permDiff,
 			}
 
@@ -59,12 +63,15 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&rootFlags.diff, "diff", "d", false, "Highlight the differences between successive updates.")
-	rootCmd.PersistentFlags().BoolVarP(&rootFlags.permDiff, "permdiff", "P", false, "Highlight the differences between successive updates since the first iteration.")
+	// TODO implement "exit when output from command does not change"
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.chgExit, "chgexit", "g", false, "Exit when output from command changes")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.debug, "debug", "D", false, "Enable debug log")
-	rootCmd.PersistentFlags().UintVarP(&rootFlags.interval, "interval", "n", 2, "Specify update interval.")
-	rootCmd.PersistentFlags().UintVarP(&rootFlags.records, "records", "r", 50, "Specify how many stdout records are kept in memory.")
-	rootCmd.PersistentFlags().StringVarP(&rootFlags.title, "set-title", "T", "", "Replace the hostname in the status bar by a custom string.")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.diff, "diff", "d", false, "Highlight the differences between successive updates")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.errExit, "errexit", "e", false, "Exit if command has a non-zero exit")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.permDiff, "permdiff", "P", false, "Highlight the differences between successive updates since the first iteration")
+	rootCmd.PersistentFlags().UintVarP(&rootFlags.interval, "interval", "n", 2, "Specify update interval")
+	rootCmd.PersistentFlags().UintVarP(&rootFlags.records, "records", "r", 50, "Specify how many stdout records are kept in memory")
+	rootCmd.PersistentFlags().StringVarP(&rootFlags.title, "set-title", "T", "", "Replace the hostname in the status bar by a custom string")
 }
 
 func Execute() {

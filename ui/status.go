@@ -52,7 +52,6 @@ func (m *Model) statusView() string {
 
 	// On start date is not set until first command execution is done
 	if cmd.date.Equal(time.Time{}) && m.firstRun {
-		m.firstRun = false
 		cmd.date = time.Now()
 	}
 	date = fmt.Sprintf("%s: %s", m.cfg.HostName, cmd.date.Format("Mon Jan 02 15:04:05 2006"))

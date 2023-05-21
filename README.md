@@ -41,15 +41,23 @@ Usage:
   sasqwatch [flags] command
 
 Flags:
-  -D, --debug              Enable debug log, out will will be saved in
-  -d, --diff               Highlight the differences between successive updates.
+  -g, --chgexit            Exit when output from command changes
+  -D, --debug              Enable debug log
+  -d, --diff               Highlight the differences between successive updates
+  -e, --errexit            Exit if command has a non-zero exit
   -h, --help               help for sasqwatch
-  -n, --interval uint      Specify update interval. (default 2)
-  -P, --permdiff           Highlight the differences between successive updates since the first iteration.
-  -r, --records uint       Specify how many stdout records are kept in memory. (default 50)
-  -T, --set-title string   Replace the hostname in the status bar by a custom string.
+  -n, --interval uint      Specify update interval (default 2)
+  -P, --permdiff           Highlight the differences between successive updates since the first iteration
+  -r, --records uint       Specify how many stdout records are kept in memory (default 50)
+  -T, --set-title string   Replace the hostname in the status bar by a custom string
   -v, --version            version for sasqwatch
 ```
+
+## Command History
+
+`sasqwatch` keeps track of the command output history. You can use the `[` and `]` keys to travel back in time and visualize previous records. While viewing previous records, `sasqwatch` stops recording and enters `pause` mode. You can activate recording again by pressing the `space` key.
+
+To save memory and control memory footprint, only changing outputs are recorded. In other words, if there are no changes in the stdout between two executions, it won't be recorded. By default, only the last 50 command outputs are recorded, but this can be adjusted using the `-r <value>` option.
 
 ## A word on the implementation
 

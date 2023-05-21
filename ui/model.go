@@ -33,14 +33,16 @@ type Config struct {
 	History  int
 	HostName string
 	Cmd      string
+	ChgExit  bool
 	Diff     bool
+	ErrExit  bool
 	PermDiff bool
 }
 
 type cmdData struct {
 	stdout     []byte
 	stdoutDiff string
-	err        error
+	exitCode   int
 	date       time.Time
 	header     string
 }
@@ -160,7 +162,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.cmdIdx < m.cmdRecords-1 {
 				m.cmdIdx++
-				log.Debug().Str("Component", "ModelUpdate").Str("Case", "KeyMsg").Str("Key", "Prev").Msgf("cmdIdx: %v - cmdRecords: %v", m.cmdIdx, m.cmdRecords)
+				log.Debug().Str("function", "ModelUpdate").Str("Case", "KeyMsg").Str("Key", "Prev").Msgf("cmdIdx: %v - cmdRecords: %v", m.cmdIdx, m.cmdRecords)
 				cmds = append(cmds, updateSdtOutEvent)
 			}
 			cmds = append(cmds, rep)
@@ -178,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keymap.copy):
 			err := clipboard.WriteAll(string(m.cmdsData[len(m.cmdsData)-1-m.cmdIdx].stdout))
 			if err != nil {
-				log.Debug().Str("Component", "ModelUpdate").Str("Case", "KeyMsg").Str("Key", "copy").Msgf("Clipboard err: %v", err)
+				log.Debug().Str("function", "ModelUpdate").Str("Case", "KeyMsg").Str("Key", "copy").Msgf("Clipboard err: %v", err)
 			}
 			m.copyCb = true
 			// Provide visual feedback that copy to clipboard was successful
@@ -208,32 +210,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case timer.TimeoutMsg:
-		log.Debug().Str("Component", "ModelUpdate").Str("Case", "TimeoutMsg").Msg("")
+		log.Debug().Str("function", "ModelUpdate").Str("Case", "TimeoutMsg").Msg("")
 		cmds = append(cmds, runCmdEvent)
 
 	case runCmd:
 		if !inProgress {
-			log.Debug().Str("Component", "ModelUpdate").Str("Case", "runCmd").Msg("Trigger command")
+			log.Debug().Str("function", "ModelUpdate").Str("Case", "runCmd").Msg("Trigger command")
 			go execCmd(strings.Fields(m.cfg.Cmd), m.execCh)
 		} else {
-			log.Debug().Str("Component", "ModelUpdate").Str("Case", "runCmd").Msg("Skipping command")
+			log.Debug().Str("function", "ModelUpdate").Str("Case", "runCmd").Msg("Skipping command")
 		}
 		cmds = append(cmds, waitCmd(m.execCh))
 
 	case cmdData:
-		log.Debug().Str("Component", "ModelUpdate").Str("Case", "cmdData").Bool("Paused", m.paused).Msg("")
+		log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Bool("Paused", m.paused).Msg("")
+
 		if !m.paused {
 			m.timer.Timeout = m.cfg.Interval
-			cmds = append(cmds, m.timer.Start())
+			m.timer.Init()
 		} else if m.forcedRun {
 			m.forcedRun = false
 		}
-		m.procCmdData(msg)
+		t := m.procCmdData(msg)
+		if t != nil {
+			return m, t
+		}
 		cmds = append(cmds, updateSdtOutEvent)
-		log.Debug().Str("Component", "ModelUpdate").Str("Case", "cmdData").Int("timerId", m.timer.ID()).Dur("Interval", m.timer.Interval).Dur("timerTO", m.timer.Timeout).Msg("")
+		if m.firstRun {
+			log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Bool("firstRun", m.firstRun).Msg("")
+			m.firstRun = false
+		}
+		log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Int("timerId", m.timer.ID()).Dur("Interval", m.timer.Interval).Dur("timerTO", m.timer.Timeout).Msg("")
 
 	case updateSdtOut:
-		log.Debug().Str("Component", "ModelUpdate").Str("Case", "updateSdtOut").Msg("Event received")
+		log.Debug().Str("function", "ModelUpdate").Str("Case", "updateSdtOut").Msg("Event received")
 		if m.diffOption != diffOff {
 			m.viewport.SetContent(m.diffStdout())
 		} else {
@@ -264,8 +274,17 @@ func (m Model) View() string {
 }
 
 // procCmdData update in memory command execution data array
-func (m *Model) procCmdData(d cmdData) {
+func (m *Model) procCmdData(d cmdData) tea.Cmd {
+	if m.cfg.ErrExit && d.exitCode != 0 {
+		log.Debug().Str("function", "procCmdData").Any("cmdErr", d.exitCode).Msg("Exiting")
+		return tea.Quit
+	}
+
 	if string(d.stdout) != string(m.cmdsData[len(m.cmdsData)-1].stdout) {
+		if m.cfg.ChgExit && !m.firstRun {
+			log.Debug().Str("function", "procCmdData").Bool("optChgExit", m.cfg.ChgExit).Bool("FirstRun", m.firstRun).Msg("Exiting")
+			return tea.Quit
+		}
 		b := make([]cmdData, cap(m.cmdsData))
 		copy(b, m.cmdsData[1:])
 		b[len(b)-1] = d
@@ -276,11 +295,12 @@ func (m *Model) procCmdData(d cmdData) {
 	} else {
 		m.cmdsData[len(m.cmdsData)-1].date = d.date
 	}
+	return nil
 }
 
 // diffStdout process stdout command data and identify diffs
 func (m *Model) diffStdout() string {
-	log.Debug().Str("Component", "ModeldiffStdout").Int("cmdIdx", m.cmdIdx).Int("cmdRecords", m.cmdRecords).Int("History", m.cfg.History).Msg("Diff processing")
+	log.Debug().Str("function", "ModeldiffStdout").Int("cmdIdx", m.cmdIdx).Int("cmdRecords", m.cmdRecords).Int("History", m.cfg.History).Msg("Diff processing")
 
 	if m.diffOption > diffOff && m.cmdPerpDiff == "" {
 		m.cmdPerpDiff = string(m.cmdsData[len(m.cmdsData)-1].stdout)
@@ -339,12 +359,18 @@ func waitCmd(resp chan cmdData) tea.Cmd {
 // execCmd execute a shell command
 // This function is meant to be run as a goroutine
 func execCmd(command []string, outputChan chan<- cmdData) {
-	log.Debug().Str("Component", "execCmd").Msg("")
+	log.Debug().Str("function", "execCmd").Msg("")
 
 	inProgress = true
 	var cmd cmdData
+	var err error
+
 	exeCmd := exec.Command("sh", "-c", strings.Join(command, " "))
-	cmd.stdout, cmd.err = exeCmd.CombinedOutput()
+	cmd.stdout, err = exeCmd.CombinedOutput()
+	if exitError, ok := err.(*exec.ExitError); ok {
+		log.Debug().Str("function", "execCmd").Int("ExitCode", exitError.ExitCode()).Msg("")
+		cmd.exitCode = exitError.ExitCode()
+	}
 	cmd.date = time.Now()
 	inProgress = false
 	outputChan <- cmd
