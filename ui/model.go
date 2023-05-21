@@ -140,10 +140,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case key.Matches(msg, m.keymap.pause):
 			m.paused = !m.paused
-			if !m.paused {
+			if m.paused {
+				cmds = append(cmds, m.timer.Stop())
+			} else {
 				m.cmdIdx = 0
+				cmds = append(cmds, runCmdEvent)
 			}
-			cmds = append(cmds, m.timer.Toggle())
 		case key.Matches(msg, m.keymap.run):
 			m.forcedRun = true
 			if m.paused {
