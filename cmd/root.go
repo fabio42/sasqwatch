@@ -63,7 +63,6 @@ var (
 )
 
 func init() {
-	// TODO implement "exit when output from command does not change"
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.chgExit, "chgexit", "g", false, "Exit when output from command changes")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.debug, "debug", "D", false, "Enable debug log")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.diff, "diff", "d", false, "Highlight the differences between successive updates")
