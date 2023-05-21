@@ -84,8 +84,6 @@ func NewModel(cfg Config) Model {
 	vp := viewport.New(200, 10)
 	vp.MouseWheelEnabled = true
 
-	t := timer.NewWithInterval(cfg.Interval, time.Second)
-
 	if cfg.HostName == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -103,7 +101,6 @@ func NewModel(cfg Config) Model {
 
 	return Model{
 		cfg:        cfg,
-		timer:      t,
 		viewport:   &vp,
 		keymap:     km,
 		paused:     false,
@@ -119,7 +116,6 @@ func NewModel(cfg Config) Model {
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		tea.EnterAltScreen,
-		m.timer.Init(),
 		func() tea.Msg { return runCmd{} },
 	)
 }
@@ -223,11 +219,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, waitCmd(m.execCh))
 
 	case cmdData:
-		log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Bool("Paused", m.paused).Msg("")
+		log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Int("timerId", m.timer.ID()).Bool("Paused", m.paused).Bool("timerRunning", m.timer.Running()).Msg("")
 
 		if !m.paused {
-			m.timer.Timeout = m.cfg.Interval
-			m.timer.Init()
+			m.timer = timer.NewWithInterval(m.cfg.Interval, time.Second)
+			cmds = append(cmds, m.timer.Init())
+			log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Int("timerId", m.timer.ID()).Bool("timerRunning", m.timer.Running()).Msg("New timer")
 		} else if m.forcedRun {
 			m.forcedRun = false
 		}
@@ -240,7 +237,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Bool("firstRun", m.firstRun).Msg("")
 			m.firstRun = false
 		}
-		log.Debug().Str("function", "ModelUpdate").Str("Case", "cmdData").Int("timerId", m.timer.ID()).Dur("Interval", m.timer.Interval).Dur("timerTO", m.timer.Timeout).Msg("")
 
 	case updateSdtOut:
 		log.Debug().Str("function", "ModelUpdate").Str("Case", "updateSdtOut").Msg("Event received")
