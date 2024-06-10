@@ -9,8 +9,9 @@ License:   MIT
 URL:       https://github.com/fabio42/sasqwatch
 Source0:   https://github.com/fabio42/sasqwatch/archive/refs/tags/v%{version}.tar.gz
 
-Requires:  procps-ng
-Requires:  upx
+BuildRequires: golang
+Requires:      procps-ng
+Requires:      upx
 
 %description
 Sasqwatch is a modern take on the classic watch command for Linux. It periodically executes a command and displays the output in a clear and concise manner.
