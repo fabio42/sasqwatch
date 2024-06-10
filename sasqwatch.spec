@@ -10,6 +10,7 @@ URL:       https://github.com/fabio42/sasqwatch
 Source0:   https://github.com/fabio42/sasqwatch/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires: golang
+BuildRequires: git
 Requires:      procps-ng
 Requires:      upx
 
