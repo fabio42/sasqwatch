@@ -13,7 +13,6 @@ BuildRequires: golang
 BuildRequires: git
 BuildRequires: upx
 Requires:      procps-ng
-Requires:      upx
 
 %description
 Sasqwatch is a modern take on the classic watch command for Linux. It periodically executes a command and displays the output in a clear and concise manner.
