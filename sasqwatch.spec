@@ -11,6 +11,7 @@ Source0:   https://github.com/fabio42/sasqwatch/archive/refs/tags/v%{version}.ta
 
 BuildRequires: golang
 BuildRequires: git
+BuildRequires: upx
 Requires:      procps-ng
 Requires:      upx
 
