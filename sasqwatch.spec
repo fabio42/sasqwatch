@@ -30,7 +30,7 @@ upx %{name}
 %{_bindir}/%{name}
 
 %changelog
-* Mon Jun 10 2023 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-4
+* Mon Jun 10 2024 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-4
 * Fri Jul 28 2023 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-2
 - Improved printing of version information
 * Tue Jun 20 2023 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-1
