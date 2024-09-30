@@ -23,9 +23,22 @@ The initial goal was to create a `watch` command version that would allow update
 
 ## Installation
 
+Ensure you have Go 1.20 or later installed.
+
 ```bash
 go install github.com/fabio42/sasqwatch@latest
 ```
+
+Alternatively, you can clone the repository and build from source:
+
+```bash
+git clone https://github.com/fabio42/sasqwatch.git
+cd sasqwatch
+go mod tidy
+go build
+```
+
+Note: This project requires Go 1.20 or later.
 
 `sasqwatch` is now also available through [tea package manager](https://tea.xyz/):
 
