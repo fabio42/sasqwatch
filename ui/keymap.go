@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 const (
 	helpHeight     = 1
@@ -9,7 +9,7 @@ const (
 
 var (
 	km = keymap{
-		pause: key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "pause/unpause")),
+		pause: key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "pause/unpause")),
 		run:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "trigger command")),
 		prev:  key.NewBinding(key.WithKeys("[", "{"), key.WithHelp("[", "previous record")),
 		next:  key.NewBinding(key.WithKeys("]", "}"), key.WithHelp("]", "next record")),

@@ -1,0 +1,1 @@
+- handle use case where history size = 0, remove status bar data in that case

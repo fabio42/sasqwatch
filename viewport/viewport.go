@@ -4,9 +4,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -39,23 +39,9 @@ type Model struct {
 	// YOffset is the vertical scroll position.
 	YOffset int
 
-	// YPosition is the position of the viewport in relation to the terminal
-	// window. It's used in high performance rendering only.
-	YPosition int
-
 	// Style applies a lipgloss style to the viewport. Realistically, it's most
 	// useful for setting borders, margins and padding.
 	Style lipgloss.Style
-
-	// HighPerformanceRendering bypasses the normal Bubble Tea renderer to
-	// provide higher performance rendering. Most of the time the normal Bubble
-	// Tea rendering methods will suffice, but if you're passing content with
-	// a lot of ANSI escape codes you may see improved rendering in certain
-	// terminals with this enabled.
-	//
-	// This should only be used in program occupying the entire terminal,
-	// which is usually via the alternate screen buffer.
-	HighPerformanceRendering bool
 
 	// horizontal step represents the step of indent we add with one move left or right.
 	horizontalStep int
@@ -143,16 +129,6 @@ func (m Model) visibleLines() (lines []string) {
 	}
 
 	return lines
-}
-
-// scrollArea returns the scrollable boundaries for high performance rendering.
-func (m Model) scrollArea() (top, bottom int) {
-	top = max(0, m.YPosition)
-	bottom = max(top, top+m.Height)
-	if top > 0 && bottom > top {
-		bottom--
-	}
-	return top, bottom
 }
 
 // SetYOffset sets the Y offset.
@@ -257,43 +233,6 @@ func (m *Model) GotoBottom() (lines []string) {
 	return m.visibleLines()
 }
 
-// Sync tells the renderer where the viewport will be located and requests
-// a render of the current state of the viewport. It should be called for the
-// first render and after a window resize.
-//
-// For high performance rendering only.
-func Sync(m Model) tea.Cmd {
-	if len(m.lines) == 0 {
-		return nil
-	}
-	top, bottom := m.scrollArea()
-	return tea.SyncScrollArea(m.visibleLines(), top, bottom)
-}
-
-// ViewDown is a high performance command that moves the viewport up by a given
-// number of lines. Use Model.ViewDown to get the lines that should be rendered.
-// For example:
-//
-//	lines := model.ViewDown(1)
-//	cmd := ViewDown(m, lines)
-func ViewDown(m Model, lines []string) tea.Cmd {
-	if len(lines) == 0 {
-		return nil
-	}
-	top, bottom := m.scrollArea()
-	return tea.ScrollDown(lines, top, bottom)
-}
-
-// ViewUp is a high performance command the moves the viewport down by a given
-// number of lines height. Use Model.ViewUp to get the lines that should be
-// rendered.
-func ViewUp(m Model, lines []string) tea.Cmd {
-	if len(lines) == 0 {
-		return nil
-	}
-	top, bottom := m.scrollArea()
-	return tea.ScrollUp(lines, top, bottom)
-}
 
 // SetHorizontalStep is a setter for `horizontalStep`.
 // Must be set before `MoveLeft` or `MoveRight` is used.
@@ -342,43 +281,25 @@ func (m Model) updateAsModel(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.KeyMap.PageDown):
-			lines := m.ViewDown()
-			if m.HighPerformanceRendering {
-				cmd = ViewDown(m, lines)
-			}
+			m.ViewDown()
 
 		case key.Matches(msg, m.KeyMap.PageUp):
-			lines := m.ViewUp()
-			if m.HighPerformanceRendering {
-				cmd = ViewUp(m, lines)
-			}
+			m.ViewUp()
 
 		case key.Matches(msg, m.KeyMap.HalfPageDown):
-			lines := m.HalfViewDown()
-			if m.HighPerformanceRendering {
-				cmd = ViewDown(m, lines)
-			}
+			m.HalfViewDown()
 
 		case key.Matches(msg, m.KeyMap.HalfPageUp):
-			lines := m.HalfViewUp()
-			if m.HighPerformanceRendering {
-				cmd = ViewUp(m, lines)
-			}
+			m.HalfViewUp()
 
 		case key.Matches(msg, m.KeyMap.Down):
-			lines := m.LineDown(1)
-			if m.HighPerformanceRendering {
-				cmd = ViewDown(m, lines)
-			}
+			m.LineDown(1)
 
 		case key.Matches(msg, m.KeyMap.Up):
-			lines := m.LineUp(1)
-			if m.HighPerformanceRendering {
-				cmd = ViewUp(m, lines)
-			}
+			m.LineUp(1)
 
 		case key.Matches(msg, m.KeyMap.Left):
 			m.MoveLeft()
@@ -387,22 +308,17 @@ func (m Model) updateAsModel(msg tea.Msg) (Model, tea.Cmd) {
 			m.MoveRight()
 		}
 
-	case tea.MouseMsg:
+	case tea.MouseWheelMsg:
 		if !m.MouseWheelEnabled {
 			break
 		}
-		switch msg.Type {
+		m2 := msg.Mouse()
+		switch m2.Button {
 		case tea.MouseWheelUp:
-			lines := m.LineUp(m.MouseWheelDelta)
-			if m.HighPerformanceRendering {
-				cmd = ViewUp(m, lines)
-			}
+			m.LineUp(m.MouseWheelDelta)
 
 		case tea.MouseWheelDown:
-			lines := m.LineDown(m.MouseWheelDelta)
-			if m.HighPerformanceRendering {
-				cmd = ViewDown(m, lines)
-			}
+			m.LineDown(m.MouseWheelDelta)
 		}
 	}
 
@@ -411,14 +327,6 @@ func (m Model) updateAsModel(msg tea.Msg) (Model, tea.Cmd) {
 
 // View renders the viewport into a string.
 func (m Model) View() string {
-	if m.HighPerformanceRendering {
-		// Just send newlines since we're going to be rendering the actual
-		// content separately. We still need to send something that equals the
-		// height of this view so that the Bubble Tea standard renderer can
-		// position anything below this view properly.
-		return strings.Repeat("\n", max(0, m.Height-1))
-	}
-
 	w, h := m.Width, m.Height
 	if sw := m.Style.GetWidth(); sw != 0 {
 		w = min(w, sw)
@@ -429,12 +337,11 @@ func (m Model) View() string {
 	contentWidth := w - m.Style.GetHorizontalFrameSize()
 	contentHeight := h - m.Style.GetVerticalFrameSize()
 	contents := lipgloss.NewStyle().
-		Height(contentHeight).    // pad to height.
-		MaxHeight(contentHeight). // truncate height if taller.
-		MaxWidth(contentWidth).   // truncate width.
+		Height(contentHeight).
+		MaxHeight(contentHeight).
+		MaxWidth(contentWidth).
 		Render(strings.Join(m.visibleLines(), "\n"))
-	return m.Style.Copy().
-		UnsetWidth().UnsetHeight(). // Style size already applied in contents.
+	return m.Style.UnsetWidth().UnsetHeight().
 		Render(contents)
 }
 
@@ -445,16 +352,3 @@ func clamp(v, low, high int) int {
 	return min(high, max(low, v))
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
