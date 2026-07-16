@@ -29,7 +29,7 @@ func newFakeRunner(pairs ...struct {
 	return &fakeRunner{results: pairs}
 }
 
-func (f *fakeRunner) Run(_ string) ([]byte, int) {
+func (f *fakeRunner) Run(_ string, _, _ int) ([]byte, int) {
 	r := f.results[f.idx%len(f.results)]
 	f.idx++
 	return r.stdout, r.exitCode

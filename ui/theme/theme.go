@@ -14,6 +14,7 @@ type SasqTheme struct {
 	StatusOptionColor color.Color // counters and mode indicators
 	StatusBgColor     color.Color // status bar background
 	StatusFgColor     color.Color // status bar foreground
+	StatusModeFgColor color.Color // foreground for the run/stop mode block
 	DiffColor         color.Color // background highlight for diff insertions
 	OptionSeparator   string      // separates mode tokens in the status bar
 }
@@ -26,6 +27,7 @@ func DefaultTheme() SasqTheme {
 		StatusOptionColor: lipgloss.Color("3"), // yellow
 		StatusBgColor:     lipgloss.Color("0"), // black
 		StatusFgColor:     lipgloss.Color("7"), // white
+		StatusModeFgColor: lipgloss.Color("0"), // black — readable on green/red backgrounds
 		DiffColor:         lipgloss.Color("1"), // red
 		OptionSeparator:   "| ",
 	}

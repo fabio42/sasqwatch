@@ -1,8 +1,12 @@
 package ui
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fabio42/sasqwatch/ui/theme"
@@ -13,6 +17,7 @@ import (
 	"charm.land/bubbles/v2/timer"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/creack/pty"
 	"github.com/rs/zerolog/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -25,19 +30,58 @@ const (
 
 // CommandRunner abstracts shell execution so the model can be tested without spawning processes.
 type CommandRunner interface {
-	Run(command string) (stdout []byte, exitCode int)
+	Run(command string, cols, rows int) (stdout []byte, exitCode int)
 }
 
 // shellRunner is the production implementation of CommandRunner.
-type shellRunner struct{}
+// When usePty is true it allocates a pseudo-terminal sized to cols×rows so that
+// terminal-aware programs (e.g. tools that draw width-adaptive tables) see a
+// real TTY and format their output correctly. Falls back to plain pipe-based
+// CombinedOutput if PTY allocation fails (e.g. CI / constrained environments).
+// When usePty is false (the default) the command runs on ordinary pipes.
+type shellRunner struct {
+	usePty bool
+}
 
-func (shellRunner) Run(command string) ([]byte, int) {
+func (r shellRunner) Run(command string, cols, rows int) ([]byte, int) {
 	cmd := exec.Command("sh", "-c", command)
-	out, err := cmd.CombinedOutput()
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		return out, exitErr.ExitCode()
+
+	if !r.usePty {
+		out, err := cmd.CombinedOutput()
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return out, exitErr.ExitCode()
+		}
+		return out, 0
 	}
-	return out, 0
+
+	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{
+		Rows: uint16(rows),
+		Cols: uint16(cols),
+	})
+	if err != nil {
+		// PTY unavailable — fall back to ordinary pipes.
+		log.Debug().Str("function", "shellRunner.Run").Msgf("pty start failed, falling back to pipes: %v", err)
+		out, runErr := cmd.CombinedOutput()
+		if exitErr, ok := runErr.(*exec.ExitError); ok {
+			return out, exitErr.ExitCode()
+		}
+		return out, 0
+	}
+	defer ptmx.Close()
+
+	var buf bytes.Buffer
+	_, copyErr := io.Copy(&buf, ptmx)
+	// On macOS (and some Linux kernels) the PTY master returns EIO once the
+	// child's slave side is closed — that is normal EOF, not a real error.
+	if copyErr != nil && !errors.Is(copyErr, syscall.EIO) {
+		log.Debug().Str("function", "shellRunner.Run").Msgf("pty read error: %v", copyErr)
+	}
+
+	waitErr := cmd.Wait()
+	if exitErr, ok := waitErr.(*exec.ExitError); ok {
+		return buf.Bytes(), exitErr.ExitCode()
+	}
+	return buf.Bytes(), 0
 }
 
 // Clipboard abstracts clipboard writes so the model can be tested without touching the system clipboard.
@@ -63,6 +107,7 @@ type Config struct {
 	Diff     bool
 	ErrExit  bool
 	PermDiff bool
+	Pty      bool // run the watched command on a pseudo-terminal (see --pty flag)
 	Theme    theme.SasqTheme
 	Runner   CommandRunner // optional; defaults to shellRunner{}
 	Clip     Clipboard     // optional; defaults to atottoClipboard{}
@@ -114,10 +159,9 @@ func updateStdOutEvent() tea.Msg { return updateStdOut{} }
 
 func NewModel(cfg Config) Model {
 	vp := viewport.New(200, 10)
-	vp.MouseWheelEnabled = true
 
 	if cfg.Runner == nil {
-		cfg.Runner = shellRunner{}
+		cfg.Runner = shellRunner{usePty: cfg.Pty}
 	}
 	if cfg.Clip == nil {
 		cfg.Clip = atottoClipboard{}
@@ -246,7 +290,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.inProgress {
 			log.Debug().Str("function", "Update").Str("case", "runCmd").Msg("trigger command")
 			m.inProgress = true
-			go execCmd(m.cfg.Cmd, m.execCh, m.cfg.Runner)
+			cols, rows := m.width, m.viewportHeight()
+			if cols == 0 {
+				cols = 80
+			}
+			if rows <= 0 {
+				rows = 24
+			}
+			go execCmd(m.cfg.Cmd, cols, rows, m.execCh, m.cfg.Runner)
 		} else {
 			log.Debug().Str("function", "Update").Str("case", "runCmd").Msg("command already in progress, skipping")
 		}
@@ -305,7 +356,7 @@ func (m Model) View() tea.View {
 	}
 	v := tea.NewView(str.String())
 	v.AltScreen = true
-	v.MouseMode = tea.MouseModeCellMotion
+	v.MouseMode = tea.MouseModeNone
 	return v
 }
 
@@ -427,10 +478,12 @@ func waitCmd(resp chan cmdData) tea.Cmd {
 }
 
 // execCmd runs command via the provided CommandRunner and sends the result to outputChan.
+// cols and rows reflect the current viewport dimensions so the child process can
+// format its output to the right width.
 // This function is meant to be called as a goroutine. It does not touch any model state.
-func execCmd(command string, outputChan chan<- cmdData, runner CommandRunner) {
+func execCmd(command string, cols, rows int, outputChan chan<- cmdData, runner CommandRunner) {
 	log.Debug().Str("function", "execCmd").Msg("")
-	stdout, exitCode := runner.Run(command)
+	stdout, exitCode := runner.Run(command, cols, rows)
 	outputChan <- cmdData{
 		stdout:   stdout,
 		exitCode: exitCode,

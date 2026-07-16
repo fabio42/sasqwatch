@@ -21,6 +21,7 @@ var (
 		diff     bool
 		errExit  bool
 		permDiff bool
+		pty      bool
 		interval uint
 		records  uint
 		title    string
@@ -56,6 +57,7 @@ var (
 				Diff:     rootFlags.diff,
 				ErrExit:  rootFlags.errExit,
 				PermDiff: rootFlags.permDiff,
+				Pty:      rootFlags.pty,
 				Theme:    theme.DefaultTheme(),
 			}
 
@@ -74,6 +76,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.diff, "diff", "d", false, "Highlight the differences between successive updates")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.errExit, "errexit", "e", false, "Exit if command has a non-zero exit")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.permDiff, "permdiff", "P", false, "Highlight the differences between successive updates since the first iteration")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.pty, "pty", "t", false, "Run the command on a pseudo-terminal (TTY) so terminal-aware tools format correctly; may emit raw escape codes for screen-control programs")
 	rootCmd.PersistentFlags().UintVarP(&rootFlags.interval, "interval", "n", 2, "Specify update interval")
 	rootCmd.PersistentFlags().UintVarP(&rootFlags.records, "records", "r", 50, "Specify how many stdout records are kept in memory")
 	rootCmd.PersistentFlags().StringVarP(&rootFlags.title, "set-title", "T", "", "Replace the hostname in the status bar by a custom string")

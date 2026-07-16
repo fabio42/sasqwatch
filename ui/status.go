@@ -56,7 +56,7 @@ func (m *Model) statusView() string {
 		cmd.date = time.Now()
 	}
 	date = fmt.Sprintf("%s: %s", m.cfg.HostName, cmd.date.Format("Mon Jan 02 15:04:05 2006"))
-	mode := mainStyle.Background(bg).AlignHorizontal(lipgloss.Left).Render(modeData)
+	mode := mainStyle.Background(bg).Foreground(t.StatusModeFgColor).AlignHorizontal(lipgloss.Left).Render(modeData)
 	left = mode + records + diff + clip
 
 	left = m.truncStatus(left, len([]rune(date)))
