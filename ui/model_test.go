@@ -222,6 +222,48 @@ func TestComputeDiff_Perpetual_NoChange_BaseUnchanged(t *testing.T) {
 	}
 }
 
+// --- stepInterval tests ---
+
+func TestStepInterval(t *testing.T) {
+	cases := []struct {
+		name string
+		in   time.Duration
+		up   bool
+		want time.Duration
+	}{
+		// --- up steps ---
+		{"2s up", 2 * time.Second, true, 3 * time.Second},
+		{"9s up crosses tier", 9 * time.Second, true, 10 * time.Second},
+		{"10s up", 10 * time.Second, true, 15 * time.Second},
+		{"55s up crosses tier", 55 * time.Second, true, 60 * time.Second},
+		{"60s up", 60 * time.Second, true, 90 * time.Second},
+		{"270s up crosses tier", 270 * time.Second, true, 300 * time.Second},
+		{"300s up", 300 * time.Second, true, 360 * time.Second},
+		{"3540s up crosses tier", 3540 * time.Second, true, 3600 * time.Second},
+		{"3600s up", 3600 * time.Second, true, 3900 * time.Second},
+		// --- down steps (symmetric with their up counterparts) ---
+		{"3s down", 3 * time.Second, false, 2 * time.Second},
+		{"10s down", 10 * time.Second, false, 9 * time.Second},
+		{"15s down", 15 * time.Second, false, 10 * time.Second},
+		{"60s down", 60 * time.Second, false, 55 * time.Second},
+		{"90s down", 90 * time.Second, false, 60 * time.Second},
+		{"300s down", 300 * time.Second, false, 270 * time.Second},
+		{"360s down", 360 * time.Second, false, 300 * time.Second},
+		{"3600s down", 3600 * time.Second, false, 3540 * time.Second},
+		{"3900s down", 3900 * time.Second, false, 3600 * time.Second},
+		// --- floor ---
+		{"1s down stays at 1s", 1 * time.Second, false, 1 * time.Second},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := stepInterval(tc.in, tc.up)
+			if got != tc.want {
+				t.Errorf("stepInterval(%v, up=%v) = %v, want %v", tc.in, tc.up, got, tc.want)
+			}
+		})
+	}
+}
+
 // --- inProgress (race fix) tests ---
 
 func TestInProgress_SetOnRunCmd_ClearedOnCmdData(t *testing.T) {

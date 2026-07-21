@@ -55,6 +55,10 @@ Flags:
   -v, --version            version for sasqwatch
 ```
 
+## Adjusting the Interval on the Fly
+
+Press `+` (or `=`) to increase the interval and `-` (or `_`) to decrease it while the program is running. The step is magnitude-scaled so it feels natural at any speed: 1s steps below 10s, 5s below 1m, 30s below 5m, 1m below 1h, and 5m above that. The countdown restarts immediately and the interval is floored at 1s. The change also takes effect while paused — the new value applies when you resume.
+
 ## Command History
 
 `sasqwatch` keeps track of the command output history. You can use the `[` and `]` keys to travel back in time and visualize previous records. While viewing previous records, `sasqwatch` stops recording and enters `pause` mode. You can activate recording again by pressing the `space` key.

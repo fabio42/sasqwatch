@@ -14,6 +14,8 @@ var (
 		prev:  key.NewBinding(key.WithKeys("[", "{"), key.WithHelp("[", "previous record")),
 		next:  key.NewBinding(key.WithKeys("]", "}"), key.WithHelp("]", "next record")),
 		diff:  key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "change diff mode")),
+		incr:  key.NewBinding(key.WithKeys("+", "="), key.WithHelp("+", "increase interval")),
+		decr:  key.NewBinding(key.WithKeys("-", "_"), key.WithHelp("-", "decrease interval")),
 		quit:  key.NewBinding(key.WithKeys("ctrl+c", "q"), key.WithHelp("ctrl+c/q", "quit")),
 		copy:  key.NewBinding(key.WithKeys("y", "c"), key.WithHelp("y/c", "copy to clipboard")),
 		help:  key.NewBinding(key.WithKeys("?", "h"), key.WithHelp("?/h", "help")),
@@ -28,6 +30,8 @@ type keymap struct {
 	next  key.Binding
 	quit  key.Binding
 	diff  key.Binding
+	incr  key.Binding
+	decr  key.Binding
 	copy  key.Binding
 	help  key.Binding
 	nav   key.Binding
@@ -51,6 +55,8 @@ func (m *Model) helpFullView() string {
 		},
 		{
 			m.keymap.diff,
+			m.keymap.incr,
+			m.keymap.decr,
 			m.keymap.copy,
 			m.keymap.nav,
 		},

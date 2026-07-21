@@ -252,6 +252,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.diffOption++
 			}
+		case key.Matches(msg, m.keymap.incr):
+			m.cfg.Interval = stepInterval(m.cfg.Interval, true)
+			if !m.paused {
+				m.timer = timer.New(m.cfg.Interval, timer.WithInterval(time.Second))
+				cmds = append(cmds, m.timer.Init())
+			}
+		case key.Matches(msg, m.keymap.decr):
+			m.cfg.Interval = stepInterval(m.cfg.Interval, false)
+			if !m.paused {
+				m.timer = timer.New(m.cfg.Interval, timer.WithInterval(time.Second))
+				cmds = append(cmds, m.timer.Init())
+			}
 		case key.Matches(msg, m.keymap.copy):
 			err := m.cfg.Clip.Write(string(m.cmdsData[len(m.cmdsData)-1-m.cmdIdx].stdout))
 			if err != nil {
@@ -358,6 +370,45 @@ func (m Model) View() tea.View {
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeNone
 	return v
+}
+
+// stepInterval returns d adjusted up or down by a magnitude-scaled step.
+// The step grows with the interval so adjustments feel natural at any scale:
+//
+//	< 10s  → 1s steps
+//	< 1m   → 5s steps
+//	< 5m   → 30s steps
+//	< 1h   → 1m steps
+//	≥ 1h   → 5m steps
+//
+// Stepping is symmetric: (+) then (-) returns to the original value.
+// The result is floored at 1s (interval can never be zero).
+func stepInterval(d time.Duration, up bool) time.Duration {
+	step := func(s int) int {
+		switch {
+		case s < 10:
+			return 1
+		case s < 60:
+			return 5
+		case s < 300:
+			return 30
+		case s < 3600:
+			return 60
+		default:
+			return 300
+		}
+	}
+	secs := int(d / time.Second)
+	if up {
+		secs += step(secs)
+	} else {
+		// Base the down-step on (secs-1) so tier boundaries are crossed symmetrically.
+		secs -= step(secs - 1)
+	}
+	if secs < 1 {
+		secs = 1
+	}
+	return time.Duration(secs) * time.Second
 }
 
 // procCmdData updates the in-memory command history ring buffer.
