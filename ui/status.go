@@ -4,58 +4,59 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 const statusHeight = 2
 
-// statusView generate status bar output
+// statusView generates the status bar rendered as a single-line string.
 func (m *Model) statusView() string {
 	var left, right, modeData, clip, diff, records, date string
 	var cmd cmdData
-	var bg lipgloss.Color
+	t := m.cfg.Theme
 
-	runColor := lipgloss.Color("2")
-	stopColor := lipgloss.Color("1")
-	notifColor := lipgloss.Color("3")
-	mainStyle := lipgloss.NewStyle().Background(lipgloss.Color("0")).Foreground(lipgloss.Color("7"))
+	mainStyle := lipgloss.NewStyle().Background(t.StatusBgColor).Foreground(t.StatusFgColor)
 
 	if m.cmdIdx == 0 {
 		records = fmt.Sprintf(" latest/%d ", m.cmdRecords)
 	} else {
 		records = fmt.Sprintf(" %d/%d ", m.cmdIdx+1, m.cmdRecords)
 	}
-	records = mainStyle.Copy().Foreground(notifColor).Render(records)
+	records = mainStyle.Foreground(t.StatusOptionColor).Render(records)
 
+	var bg = t.StatusRunColor
 	if m.paused {
 		cmd = m.cmdsData[len(m.cmdsData)-1-m.cmdIdx]
-		bg = stopColor
+		bg = t.StatusStopColor
 		modeData = fmt.Sprintf(" ■ Every %s: %s ", m.cfg.Interval, m.cfg.Cmd)
 	} else {
 		cmd = m.cmdsData[len(m.cmdsData)-1]
-		bg = runColor
 		modeData = fmt.Sprintf(" ▶ Every %s: %s ", m.cfg.Interval, m.cfg.Cmd)
 	}
-	if m.copyCb {
-		clip = mainStyle.Copy().Foreground(runColor).Render(" Copied!")
+
+	switch {
+	case m.copyCb:
+		clip = mainStyle.Foreground(t.StatusRunColor).Render(" Copied!")
+	case m.copyErr:
+		clip = mainStyle.Foreground(t.StatusStopColor).Render(" Copy failed!")
 	}
 
 	if m.diffOption != diffOff {
 		var diffMode string
 		if m.diffOption == diffSimple {
-			diffMode = "| diff "
+			diffMode = t.OptionSeparator + "diff "
 		} else {
-			diffMode = "| permDiff "
+			diffMode = t.OptionSeparator + "permDiff "
 		}
-		diff = mainStyle.Copy().Foreground(notifColor).Render(diffMode)
+		diff = mainStyle.Foreground(t.StatusOptionColor).Render(diffMode)
 	}
 
-	// On start date is not set until first command execution is done
+	// On start the date is unset until the first command execution completes.
 	if cmd.date.Equal(time.Time{}) && m.firstRun {
 		cmd.date = time.Now()
 	}
 	date = fmt.Sprintf("%s: %s", m.cfg.HostName, cmd.date.Format("Mon Jan 02 15:04:05 2006"))
-	mode := mainStyle.Copy().Background(bg).AlignHorizontal(lipgloss.Left).Render(modeData)
+	mode := mainStyle.Background(bg).Foreground(t.StatusModeFgColor).AlignHorizontal(lipgloss.Left).Render(modeData)
 	left = mode + records + diff + clip
 
 	left = m.truncStatus(left, len([]rune(date)))
@@ -64,11 +65,12 @@ func (m *Model) statusView() string {
 		date = m.truncStatus(date, 1)
 	}
 
-	right = mainStyle.Copy().Width(m.width - (lipgloss.Width(left))).AlignHorizontal(lipgloss.Right).Render(date)
+	right = mainStyle.Width(m.width - (lipgloss.Width(left))).AlignHorizontal(lipgloss.Right).Render(date)
 	return left + right
 }
 
-// truncStatus truncate status line when screen is too small
+// truncStatus truncates str so it fits within (m.width - width) columns,
+// appending an ellipsis if any characters are dropped.
 func (m *Model) truncStatus(str string, width int) string {
 	runes := []rune(str)
 	initialLenStr := len(runes)

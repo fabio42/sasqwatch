@@ -1,8 +1,8 @@
 package viewport
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
-const spacebar = " "
+const spacebar = "space"
 
 // KeyMap defines the keybindings for the viewport. Note that you don't
 // necessary need to use keybindings at all; the viewport can be controlled

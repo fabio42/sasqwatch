@@ -7,57 +7,65 @@ import (
 	"time"
 
 	"github.com/fabio42/sasqwatch/ui"
+	"github.com/fabio42/sasqwatch/ui/theme"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
 var (
 	rootFlags = struct {
-		chgExit   bool
-		debug     bool
-		diff      bool
-		errExit   bool
-		permDiff  bool
-		statusBar bool
-		interval  uint
-		records   uint
-		title     string
+		chgExit  bool
+		debug    bool
+		diff     bool
+		errExit  bool
+		permDiff bool
+		pty      bool
+		interval uint
+		records  uint
+		title    string
 	}{}
 
 	rootCmd = &cobra.Command{
 		Use:   "sasqwatch [flags] command",
 		Short: "sasqwatch",
 		Long:  "sasqwatch is a tool to execute a program periodically, showing output fullscreen.",
+		Args:  cobra.MinimumNArgs(1),
 
-		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) == 0 {
-				cmd.Help()
-				os.Exit(0)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := setLogger(rootFlags.debug); err != nil {
+				return fmt.Errorf("failed to configure logger: %w", err)
 			}
 
-			err := setLogger(rootFlags.debug)
-			if err != nil {
-				log.Fatal().Msgf("Error failed to configure logger:", err)
+			hostname := rootFlags.title
+			if hostname == "" {
+				var err error
+				hostname, err = os.Hostname()
+				if err != nil {
+					log.Warn().Msgf("could not resolve hostname: %v", err)
+					hostname = "(✖╭╮✖)"
+				}
 			}
 
 			cfg := ui.Config{
 				Interval: time.Second * time.Duration(rootFlags.interval),
 				History:  int(rootFlags.records),
-				HostName: rootFlags.title,
+				HostName: hostname,
 				Cmd:      strings.Join(args, " "),
 				ChgExit:  rootFlags.chgExit,
 				Diff:     rootFlags.diff,
 				ErrExit:  rootFlags.errExit,
 				PermDiff: rootFlags.permDiff,
+				Pty:      rootFlags.pty,
+				Theme:    theme.DefaultTheme(),
 			}
 
 			m := ui.NewModel(cfg)
-			if _, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
-				fmt.Println("Uh oh, we encountered an error:", err)
-				os.Exit(1)
+			if _, err := tea.NewProgram(m).Run(); err != nil {
+				return fmt.Errorf("program error: %w", err)
 			}
+			return nil
 		},
 	}
 )
@@ -68,6 +76,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.diff, "diff", "d", false, "Highlight the differences between successive updates")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.errExit, "errexit", "e", false, "Exit if command has a non-zero exit")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.permDiff, "permdiff", "P", false, "Highlight the differences between successive updates since the first iteration")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.pty, "pty", "t", false, "Run the command on a pseudo-terminal (TTY) so terminal-aware tools format correctly; may emit raw escape codes for screen-control programs")
 	rootCmd.PersistentFlags().UintVarP(&rootFlags.interval, "interval", "n", 2, "Specify update interval")
 	rootCmd.PersistentFlags().UintVarP(&rootFlags.records, "records", "r", 50, "Specify how many stdout records are kept in memory")
 	rootCmd.PersistentFlags().StringVarP(&rootFlags.title, "set-title", "T", "", "Replace the hostname in the status bar by a custom string")
@@ -75,6 +84,6 @@ func init() {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal().Msgf("Whoops. There was an error while executing your CLI '%s'", err)
+		log.Fatal().Msgf("error: %v", err)
 	}
 }
