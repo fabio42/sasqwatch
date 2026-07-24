@@ -3,11 +3,12 @@
 
 Summary:   A modern take on the classic watch command for Linux
 Name:      sasqwatch
-Version:   0.2.5
-Release:   6
+Version:   0.3.1
+Release:   1
 License:   MIT
 URL:       https://github.com/fabio42/sasqwatch
 Source0:   https://github.com/fabio42/sasqwatch/archive/refs/tags/v%{version}.tar.gz
+
 
 BuildRequires: golang
 BuildRequires: git
@@ -18,10 +19,14 @@ Requires:      procps-ng
 Sasqwatch is a modern take on the classic watch command for Linux. It periodically executes a command and displays the output in a clear and concise manner.
 
 %prep
-%setup -q
+%setup -q -n sasqwatch-%{version}
+go mod vendor
 
 %build
-GO111MODULE=on CGO_ENABLED=0 go build -ldflags="-s -w -X 'github.com/fabio42/sasqwatch/cmd.Version=%{version}'" -o %{name}
+GO111MODULE=on CGO_ENABLED=0 go build \
+    -mod=vendor \
+    -ldflags="-s -w -X 'github.com/fabio42/sasqwatch/cmd.Version=%{version}'" \
+    -o %{name}
 strip %{name}
 upx %{name}
 
@@ -32,6 +37,8 @@ upx %{name}
 %{_bindir}/%{name}
 
 %changelog
+* Wed Jul 22 2026 Danie de Jager <danie.dejager@gmail.com> - 0.3.1-1
+* Fri Jun 13 2025 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-7
 * Fri Dec 20 2024 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-6
 * Mon Sep 30 2024 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-5
 * Mon Jun 10 2024 Danie de Jager <danie.dejager@gmail.com> - 0.2.5-4
